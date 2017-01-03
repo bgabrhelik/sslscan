@@ -951,15 +951,19 @@ int testFallback(struct sslCheckOptions *options,  const SSL_METHOD *sslMethod)
                             if (!downgraded)
                             {
                                 sslversion = SSL_version(ssl);
+                           #if OPENSSL_VERSION_NUMBER >= 0x10001000L
                                 if (sslversion == TLS1_2_VERSION)
                                 {
                                     secondMethod = TLSv1_1_client_method();
                                 }
-                                else if (sslversion == TLS1_VERSION)
+                                else
+                                if (sslversion == TLS1_VERSION)
                                 {
                                     secondMethod = TLSv1_client_method();
                                 }
-                                else if (sslversion == TLS1_VERSION)
+                                else
+                           #endif
+                                 if (sslversion == TLS1_VERSION)
                                 {
                                     printf("Server only supports TLSv1.0");
                                     status = false;
@@ -1500,7 +1504,20 @@ int testCipher(struct sslCheckOptions *options, const SSL_METHOD *sslMethod)
                 }
                 else if (cipherStatus != 1)
                 {
-                    printf_verbose("SSL_get_error(ssl, cipherStatus) said: %d\n", SSL_get_error(ssl, cipherStatus));
+                    const char *file = NULL;
+                    int line = 0;
+
+                    ERR_get_error_line(&file, &line);
+                    printf_verbose("#1 %s SSL_get_error(ssl, %d) said: %d; last errno: %d\n", 
+                                   SSL_CIPHER_get_name(sslCipherPointer), 
+                                   cipherStatus, 
+                                   SSL_get_error(ssl, cipherStatus), 
+                                   errno);
+                    if (file != NULL)
+                    {
+                      printf_verbose("\tError location: %s %d\n", file, line);
+                    }
+                    ERR_print_errors_fp (stderr);
                     return false;
                 }
 
